@@ -18,8 +18,49 @@ def formatInput(input):
     '''
     return (input).to_bytes(2, byteorder='little')
 
+def buildGlobalColourTable():
+    '''Iterates over the frames in the video and builds the global colour table'''
+    colourTable = {}
+    vid = loadVideo('small.mp4')
+    success = True
 
-t   
+    while success:
+        success, frame = vid.read()
+
+
+def oneFrameTest():
+    gct = {}
+    count = 0
+    video = cv2.VideoCapture("small.mp4")
+    success, frame = video.read()
+    height, width = frame.shape[:2]
+    for y in range(0, height, 4):
+        for x in range(0, width, 4):
+            pixel = frame[y, x].tolist()
+            if pixel not in gct.values():
+                gct[str(count)] = pixel
+                count += 1
+    video.release()
+    return gct
+
+
+def frameTest():
+    gct = {}
+    count = 0
+    video = cv2.VideoCapture("small.mp4")
+    success, frame = video.read()
+    height, width = frame.shape[:2]
+    while success:
+        for y in range(0, height, 4):
+            for x in range(0, width, 4):
+                pixel = frame[y, x].tolist()
+                if pixel not in gct.values():
+                    gct[str(count)] = pixel
+                    count += 1
+        success, frame = video.read()
+    video.release()
+    return gct
+
 
 def createGif(height, width):
     # Create a GIF file with the GIF89a specification
