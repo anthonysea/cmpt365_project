@@ -1,86 +1,134 @@
-#!/usr/bin/env python3
-
-import cv2, binascii, struct
-
-def loadVideo(video):
-    capture = cv2.VideoCapture(video)
-    return capture
-
-def getVideoDimensions(capture):
-    '''Return the video dimensions as a tuple -> (h, w)'''
-    success, frame = capture.read()
-    return frame[:2]
+from PIL import Image
+from PIL.GifImagePlugin import getdata
+import cv2
 
 
-def formatInput(input):
-    '''Format string input so it can be written to the GIF file
-        input should be an int
-    '''
-    return (input).to_bytes(2, byteorder='little')
+def intToBin(i):
+    """ Format the integer to binary as two bytes.
+        i should be an int. """
+    return (i).to_bytes(2, byteorder="little")
 
-def buildGlobalColourTable():
-    '''Iterates over the frames in the video and builds the global colour table'''
-    colourTable = {}
-    vid = loadVideo('small.mp4')
-    success = True
+
+def getVideoFrames(filepath):
+    """ Get the frames of the video and return a list of Image objects.
+        file path should be a string of the path to the video file. """
+    video = cv2.VideoCapture(filepath)
+    frames = []
+    success, frame = video.read()  # Read the first frame
 
     while success:
-        success, frame = vid.read()
+        frame = Image.fromarray(frame, "RGB")
+        b, g, r = frame.split()  # Convert BGR to RGB
+        frame = Image.merge("RGB", (r, g, b))
+        frame.thumbnail((300, 300))  # Resize frame
+        frame = frame.convert("P", palette=Image.ADAPTIVE)
 
-
-def oneFrameTest():
-    gct = {}
-    count = 0
-    video = cv2.VideoCapture("small.mp4")
-    success, frame = video.read()
-    height, width = frame.shape[:2]
-    for y in range(0, height, 4):
-        for x in range(0, width, 4):
-            pixel = frame[y, x].tolist()
-            if pixel not in gct.values():
-                gct[str(count)] = pixel
-                count += 1
-    video.release()
-    return gct
-
-
-def frameTest():
-    gct = {}
-    count = 0
-    video = cv2.VideoCapture("small.mp4")
-    success, frame = video.read()
-    height, width = frame.shape[:2]
-    while success:
-        for y in range(0, height, 4):
-            for x in range(0, width, 4):
-                pixel = frame[y, x].tolist()
-                if pixel not in gct.values():
-                    gct[str(count)] = pixel
-                    count += 1
+        frames.append(frame)
         success, frame = video.read()
-    video.release()
-    return gct
+
+    return frames
 
 
-def createGif(height, width):
-    # Create a GIF file with the GIF89a specification
-    with open("small.gif", 'wb') as f:
-        f.write(b'GIF89a') # Header Block
-        height = formatInput(height)
-        width = formatInput(width)
-        f.write(height + width + b'\xF7\x00\x00') # Logical Screen Descriptor
-        # Built Global Colour Table, have to iterate through each frame and create a dictionary entry for each
-        # colour not encountered
-        f.write(b'\xFF\xFF\xFF\xFF\x00\x00\x00\x00\xFF\x00\x00\x00') # Global Colour Table
-        f.write(b'\x21\xF9\x04\x00\x00\x00\x00\x00') # Graphics Control Extension
-        f.write(b'\x2C\x00\x00\x00\x00\x0A\x00\x0A\x00\x00') # Image Descriptor
-        f.write(b'\x02\x16\x8C\x2D\x99\x87\x2A\x1C\xDC\x33\xA0\x02\x75\xEC\x95\xFA\xA8\xDE\x60\x8C\x04\x91\x4c\x01\x00') # Image Data
-        f.write(b'\x3B') # Trailer (always b'\x3B')
+def getHeader(img):
+    """ Return the line for the Header Block and the Logical Screen Descriptor. Uses the first
+        frame to get the img width and img height. """
+    line = b"GIF89a"  # Specify GIF89a standard
+    line += intToBin(img.size[0])
+    line += intToBin(img.size[1])
+    line += b"\x87\x00\x00"  # \x87 = packed field
+    return line
 
 
+def getGfxCtrlExt():
+    """ Graphics Control Extension Block. """
+    line = b"\x21\xF9\x04"  # \x21 = Extension introducer, \xF9 = Graphics control label, \x04 = Byte size
+    line += b"\x00"  # Transparency; set to false
+    line += b"\x00"  # Delay time
+    line += b"\x00"  # Transparent colour; set to false
+    line += b"\x00"  # Block terminator
+    return line
+
+def getImgDesc(img):
+    """ Image Descriptor Block. """
+    line = b"\x2C"  # Image separator
+    line += b"\x00\x00"  # Image left position
+    line += b"\x00\x00"  # Image top position
+    line += intToBin(img.size[0])
+    line += intToBin(img.size[1])
+    line += b"\x87"  # Packed field (10000111)
+    return line
 
 
+def getAppExt():
+    """ Application Extension Block. """
+    line = b"\x21\xFF\x0B"  # Specifies the application extension block
+    line += b"NETSCAPE2.0"
+    line += b"\x03\x01\x00\x00"  # \x03 = length of data sub-block, \x00\x00 = number of loops that should be executed
+                                 # 0 being infinite
+    line += b"\x00"  # Data sub-block terminator
+    return line
 
+
+def writeToFile(fp, images):
+    """ Writes the set of images to a GIF fp. """
+
+    palettes, count = [], []
+    for img in images:
+        palettes.append(img.palette.palette)
+    for pal in palettes:
+        count.append(palettes.count(pal))
+
+    gct = palettes[count.index(max(count))]
+
+    frames = 0
+    startFrame = True
+
+    for img, pal in zip(images, palettes):
+
+        if startFrame:
+
+            header = getHeader(img)
+            gce = getGfxCtrlExt()
+            appExt = getAppExt()
+
+            fp.write(header)
+            fp.write(gct)
+            fp.write(appExt)
+
+            startFrame = False
+
+        if True:
+
+            data = getdata(img)
+            print(data)
+            imgDes, data = data[0], data[1:]
+            gce = getGfxCtrlExt()
+            localImgDes = getImgDesc(img)
+
+            if pal != gct:
+                fp.write(gce)
+                fp.write(localImgDes)
+                fp.write(pal)
+                # fp.write(b"\x08")  # LZW min code size (included in getdata())
+            else:
+                fp.write(gce)
+                fp.write(imgDes)
+
+
+            for d in data:
+                fp.write(d)
+
+        frames = frames + 1
+
+    fp.write(b"\x3B")  # GIF terminator, always \x3B
+    return frames
 
 if __name__ == "__main__":
-    createGif(320, 560)
+    fp = open("out.gif", "wb")
+    frames = getVideoFrames("./10.mp4")
+    print(writeToFile(fp, frames))
+
+
+
+
+
