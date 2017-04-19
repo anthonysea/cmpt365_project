@@ -1,3 +1,7 @@
+#/usr/bin/env python3
+
+from tkinter import *
+import tkinter.filedialog as filedialog
 from PIL import Image
 from PIL.GifImagePlugin import getdata
 import cv2
@@ -74,11 +78,13 @@ def writeToFile(fp, images):
 
     palettes, count = [], []
     for img in images:
-        palettes.append(img.palette.palette)
+        print(img.palette.tostring())
+        palettes.append(img.palette.tostring())
     for pal in palettes:
         count.append(palettes.count(pal))
 
-    gct = palettes[count.index(max(count))]
+    # gct = palettes[count.index(max(count))]
+    gct = palettes[0]
 
     frames = 0
     startFrame = True
@@ -123,10 +129,22 @@ def writeToFile(fp, images):
     fp.write(b"\x3B")  # GIF terminator, always \x3B
     return frames
 
-if __name__ == "__main__":
+def selectFile():
+    filePath = filedialog.askopenfilename()
     fp = open("out.gif", "wb")
-    frames = getVideoFrames("./10.mp4")
+    frames = getVideoFrames(filePath)
     print(writeToFile(fp, frames))
+
+if __name__ == "__main__":
+    root = Tk()
+    root.wm_title("Select File")
+    selectFileBtn = Button(root, text="Select video file", command=selectFile)
+    selectFileBtn.pack()
+    root.mainloop()
+
+
+
+
 
 
 
