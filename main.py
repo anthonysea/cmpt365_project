@@ -78,8 +78,8 @@ def writeToFile(fp, images):
 
     palettes, count = [], []
     for img in images:
-        print(img.palette.tostring())
-        palettes.append(img.palette.tostring())
+        # print(img.palette.palette)
+        palettes.append(img.palette.palette)
     for pal in palettes:
         count.append(palettes.count(pal))
 
@@ -106,7 +106,7 @@ def writeToFile(fp, images):
         if True:
 
             data = getdata(img)
-            print(data)
+            # print(data)
             imgDes, data = data[0], data[1:]
             gce = getGfxCtrlExt()
             localImgDes = getImgDesc(img)
@@ -131,9 +131,9 @@ def writeToFile(fp, images):
 
 def selectFile():
     filePath = filedialog.askopenfilename()
-    fp = open("out.gif", "wb")
-    frames = getVideoFrames(filePath)
-    print(writeToFile(fp, frames))
+    with open("out.gif", "wb") as fp:
+        frames = getVideoFrames(filePath)
+        print(writeToFile(fp, frames))
 
 if __name__ == "__main__":
     root = Tk()
